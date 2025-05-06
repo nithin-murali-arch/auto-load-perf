@@ -89,6 +89,7 @@ export class ResourceOptimizer {
     // Extract domains first
     this.topDomains = processor.extractDomains();
 
+    // 1. Preconnect hints first
     if (this.options.preconnect) {
       this.topDomains.forEach(({ domain }) => {
         // Skip if domain is already preconnected in HTML
@@ -103,13 +104,25 @@ export class ResourceOptimizer {
       });
     }
 
+    // 2. Preload hints from configuration
+    if (this.options.preload && pageConfig?.preloadResources) {
+      pageConfig.preloadResources.forEach(resource => {
+        // Skip if already preloaded in HTML
+        if (preloadedUrls.has(resource.url)) return;
+        
+        hints.push({
+          url: resource.url,
+          type: 'preload',
+          as: resource.as,
+        });
+        preloadedUrls.add(resource.url);
+      });
+    }
+
+    // 3. Preload stylesheets
     if (this.options.preload) {
       const maxPreloads = this.options.maxPreloads || 5;
-      
-      // Get stylesheets and scripts separately
       const stylesheets = processor.getStylesheetUrls();
-      const scripts = processor.getScriptUrls();
-      const customPreloads = pageConfig?.preloadResources || [];
 
       // Preload stylesheets up to maxPreloads limit
       for (let i = 0; i < Math.min(stylesheets.length, maxPreloads); i++) {
@@ -124,30 +137,14 @@ export class ResourceOptimizer {
         });
         preloadedUrls.add(resource.url);
       }
-
-      // Apply maxPreloads limit to custom preloads and scripts
-      const remainingResources = [
-        ...customPreloads,
-        ...scripts,
-      ];
-
-      for (let i = 0; i < Math.min(remainingResources.length, maxPreloads); i++) {
-        const resource = remainingResources[i];
-        // Skip if already preloaded in HTML
-        if (preloadedUrls.has(resource.url)) continue;
-        
-        hints.push({
-          url: resource.url,
-          type: 'preload',
-          as: resource.as,
-        });
-        preloadedUrls.add(resource.url);
-      }
     }
 
+    // 4. Prefetch scripts and other resources
     if (this.options.prefetch) {
       const maxPreloads = this.options.maxPreloads || 5;
+      const scripts = processor.getScriptUrls();
       const prefetchUrls = [
+        ...scripts.map(script => script.url),
         ...processor.getLinkUrls().filter((href: string) => !preloadedUrls.has(href)),
         ...(pageConfig?.prefetchRoutes || []),
         ...(pageConfig?.prefetchResources?.map((r: { url: string }) => r.url) || [])
