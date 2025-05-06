@@ -60,10 +60,17 @@ export class ResourceOptimizer {
 
     if (this.options.preload) {
       const maxPreloads = this.options.maxPreloads || 5;
+      
+      // Get stylesheets and scripts separately
+      const stylesheets = processor.getStylesheetUrls();
+      const scripts = processor.getScriptUrls();
+      const customPreloads = pageConfig?.preloadResources || [];
+
+      // Prioritize stylesheets first, then scripts, then custom preloads
       const criticalResources = [
-        ...processor.getStylesheetUrls(),
-        ...processor.getScriptUrls(),
-        ...(pageConfig?.preloadResources || [])
+        ...stylesheets,
+        ...customPreloads,
+        ...scripts,
       ];
 
       for (let i = 0; i < Math.min(criticalResources.length, maxPreloads); i++) {
