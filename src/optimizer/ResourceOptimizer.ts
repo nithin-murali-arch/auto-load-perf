@@ -102,7 +102,7 @@ export class ResourceOptimizer {
 
   public optimize(html: string, path: string, currentDomain: string): string {
     const pageConfig = this.findMatchingPageConfig(path);
-    const processor = new HTMLProcessor(html, currentDomain);
+    const processor = new HTMLProcessor(html, currentDomain, pageConfig);
     
     // Check cache if enabled
     if (this.cache && pageConfig?.cache?.enabled !== false && this.options.cache?.enabled) {

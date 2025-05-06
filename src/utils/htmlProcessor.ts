@@ -10,10 +10,12 @@ interface DomainCount {
 export class HTMLProcessor {
   private $: cheerio.CheerioAPI;
   private currentDomain: string;
+  private pageConfig?: PageConfig;
 
-  constructor(html: string, currentDomain: string) {
+  constructor(html: string, currentDomain: string, pageConfig?: PageConfig) {
     this.$ = cheerio.load(html);
     this.currentDomain = currentDomain;
+    this.pageConfig = pageConfig;
   }
 
   public extractDomains(): DomainCount[] {
@@ -130,25 +132,153 @@ export class HTMLProcessor {
       );
   }
 
+  private handlePictureElements() {
+    // Find all picture elements
+    const pictures = this.$('picture');
+    
+    pictures.each((_, picture) => {
+      const $picture = this.$(picture);
+      const sources = $picture.find('source');
+      const img = $picture.find('img');
+      
+      if (img.length === 0) return;
+
+      // Add data attribute for preloader
+      $picture.attr('data-auto-load-perf', '');
+
+      // Set loading and fetchpriority attributes
+      img.attr('loading', 'eager');
+      img.attr('fetchpriority', 'high');
+
+      // Preload the first source that matches media query
+      let preloaded = false;
+      sources.each((_, source) => {
+        const $source = this.$(source);
+        const media = $source.attr('media');
+        const srcset = $source.attr('srcset');
+        
+        if (!preloaded && srcset) {
+          const link = this.$('<link>');
+          link.attr('rel', 'preload');
+          link.attr('as', 'image');
+          link.attr('href', srcset.split(',')[0].trim().split(' ')[0]);
+          if (media) {
+            link.attr('media', media);
+          }
+          this.$('head').append(link);
+          preloaded = true;
+        }
+      });
+
+      // If no source was preloaded, preload the img src
+      if (!preloaded && img.attr('src')) {
+        const link = this.$('<link>');
+        link.attr('rel', 'preload');
+        link.attr('as', 'image');
+        link.attr('href', img.attr('src'));
+        this.$('head').append(link);
+      }
+    });
+  }
+
+  private handleFCPOptimizations() {
+    if (!this.pageConfig?.fcpOptimizations) return;
+
+    const { criticalStyles } = this.pageConfig.fcpOptimizations;
+    const head = this.$('head');
+
+    // Handle critical styles
+    if (criticalStyles?.length) {
+      const styleElement = this.$('<style>');
+      styleElement.attr('data-auto-load-perf', 'critical');
+      styleElement.text(criticalStyles.join('\n'));
+      head.prepend(styleElement);
+    }
+
+    // Move stylesheets to end of head
+    this.$('link[rel="stylesheet"]').each((_, el) => {
+      const $el = this.$(el);
+      const href = $el.attr('href');
+      
+      if (href && href.startsWith('/')) {
+        // Create preload link
+        const preloadLink = this.$('<link>');
+        preloadLink.attr('rel', 'preload');
+        preloadLink.attr('as', 'style');
+        preloadLink.attr('href', href);
+        head.prepend(preloadLink);
+
+        // Move stylesheet to end of head
+        head.append($el);
+      }
+    });
+  }
+
+  private applyCustomTransform() {
+    if (this.pageConfig?.customTransform) {
+      this.pageConfig.customTransform(this.$);
+    }
+  }
+
   public injectResourceHints(hints: Array<{ type: string; url: string; as?: string; crossorigin?: boolean }>): string {
     const head = this.$('head');
     
     // Add a comment with timestamp to ensure each processing is unique
     head.prepend(`<!-- Processed at: ${Date.now()} -->\n`);
 
-    hints.forEach(hint => {
+    // Group hints by type
+    const preconnectHints = hints.filter(hint => hint.type === 'preconnect');
+    const preloadHints = hints.filter(hint => hint.type === 'preload');
+    const prefetchHints = hints.filter(hint => hint.type === 'prefetch');
+
+    // Add preconnect hints at the start of head
+    preconnectHints.forEach(hint => {
       const attrs: Record<string, string> = {
         rel: hint.type,
         href: hint.url,
       };
-
-      if (hint.as) attrs.as = hint.as;
       if (hint.crossorigin) attrs.crossorigin = '';
 
       head.prepend(`<link ${Object.entries(attrs)
         .map(([key, value]) => `${key}="${value}"`)
         .join(' ')}>`);
     });
+
+    // Add preload hints at the end of head
+    preloadHints.forEach(hint => {
+      const attrs: Record<string, string> = {
+        rel: hint.type,
+        href: hint.url,
+      };
+      if (hint.as) attrs.as = hint.as;
+      if (hint.crossorigin) attrs.crossorigin = '';
+
+      head.append(`<link ${Object.entries(attrs)
+        .map(([key, value]) => `${key}="${value}"`)
+        .join(' ')}>`);
+    });
+
+    // Add prefetch hints after preload hints
+    prefetchHints.forEach(hint => {
+      const attrs: Record<string, string> = {
+        rel: hint.type,
+        href: hint.url,
+      };
+      if (hint.crossorigin) attrs.crossorigin = '';
+
+      head.append(`<link ${Object.entries(attrs)
+        .map(([key, value]) => `${key}="${value}"`)
+        .join(' ')}>`);
+    });
+
+    // Handle picture elements
+    this.handlePictureElements();
+
+    // Handle FCP optimizations
+    this.handleFCPOptimizations();
+
+    // Apply custom transformations
+    this.applyCustomTransform();
 
     return this.$.html();
   }

@@ -1,10 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { NextApiRequest, NextApiResponse } from 'next';
+import cheerio from 'cheerio';
 
 export interface LCPConfig {
   url: string | RegExp;
   selector: string;
   attributes?: Record<string, string>;
+  priority?: 'high' | 'low' | 'auto';
+  loading?: 'eager' | 'lazy';
+  fetchpriority?: 'high' | 'low' | 'auto';
 }
 
 export interface PageConfig {
@@ -17,8 +21,16 @@ export interface PageConfig {
   preloadResources?: Array<{
     url: string;
     as: string;
+    priority?: 'high' | 'low' | 'auto';
   }>;
-  cache?: PageCacheOptions;
+  cache?: {
+    enabled: boolean;
+    ttl: number;
+  };
+  customTransform?: ($: cheerio.CheerioAPI) => void;
+  fcpOptimizations?: {
+    criticalStyles?: string[];
+  };
 }
 
 export interface AutoLoadPerfOptions {

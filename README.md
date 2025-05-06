@@ -1,25 +1,105 @@
-# Auto Load Performance Optimizer
+# Auto Load Perf 🚀
 
-A high-performance middleware for Express and Next.js applications that automatically optimizes resource loading through intelligent resource hints (preconnect, prefetch, preload).
+[![npm version](https://img.shields.io/npm/v/auto-load-perf.svg)](https://www.npmjs.com/package/auto-load-perf)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 
-## Features
+> A high-performance optimization library that automatically enhances your web application's loading performance through intelligent resource management and optimization strategies.
 
-- 🚀 **Automatic Resource Optimization**: Intelligently adds resource hints to your HTML
-- 🔄 **Smart Caching**: Configurable caching system with TTL and size limits
-- 🎯 **Page-Specific Configuration**: Fine-tune optimization per route
-- 📦 **Framework Support**: Works with both Express and Next.js
-- 🔍 **LCP Optimization**: Special handling for Largest Contentful Paint elements
-- ⚡ **Performance First**: Zero runtime overhead with efficient caching
+## ✨ Features
 
-## Installation
+- 🚀 **Automatic Resource Optimization**
+  - Smart preconnect, preload, and prefetch hint generation
+  - Intelligent resource prioritization
+  - Configurable optimization strategies
+
+- 🎯 **Performance Metrics Optimization**
+  - LCP (Largest Contentful Paint) optimization
+  - FCP (First Contentful Paint) optimization
+  - Automatic critical resource detection
+
+- 🖼️ **Advanced Image Optimization**
+  - Automatic picture element detection and optimization
+  - Responsive image preloading
+  - Smart media query handling
+
+- 📦 **Resource Management**
+  - Stylesheet optimization and prioritization
+  - Custom DOM transformations
+  - Intelligent caching system
+
+## 📦 Installation
 
 ```bash
+# Using npm
 npm install auto-load-perf
-# or
+
+# Using yarn
 yarn add auto-load-perf
+
+# Using pnpm
+pnpm add auto-load-perf
 ```
 
-## Quick Start
+## 🚀 Quick Start
+
+### Next.js
+
+```typescript
+// middleware.ts
+import { createNextMiddleware } from 'auto-load-perf';
+
+export const middleware = createNextMiddleware({
+  // Enable all optimization features
+  preconnect: true,
+  prefetch: true,
+  preload: true,
+  
+  // Configure optimization strategy
+  priority: 'auto',
+  maxPreloads: 5,
+  
+  // Enable caching
+  cache: {
+    enabled: true,
+    maxSize: 100,
+    ttl: 3600000 // 1 hour
+  },
+  
+  // Page-specific optimizations
+  pages: {
+    '/': {
+      // Cache configuration
+      cache: {
+        enabled: true,
+        ttl: 1800000 // 30 minutes
+      },
+      
+      // LCP optimization
+      lcpConfig: {
+        selector: '.hero-image',
+        url: /hero\.(jpg|png)$/,
+        priority: 'high',
+        loading: 'eager',
+        fetchpriority: 'high'
+      },
+      
+      // FCP optimization
+      fcpOptimizations: {
+        criticalStyles: [
+          '.hero { display: block; }',
+          '.hero-image { width: 100%; }'
+        ]
+      }
+    }
+  }
+});
+
+// Configure middleware matching
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)']
+};
+```
 
 ### Express
 
@@ -29,91 +109,30 @@ import { createExpressMiddleware } from 'auto-load-perf';
 
 const app = express();
 
-const options = {
+app.use(createExpressMiddleware({
+  // Enable optimizations
   preconnect: true,
   prefetch: true,
   preload: true,
+  
+  // Configure strategy
   priority: 'auto',
   maxPreloads: 5,
-  cache: {
-    enabled: true,
-    maxSize: 100,
-    ttl: 3600000 // 1 hour
-  },
-  pages: {
-    '/home': {
-      cache: {
-        enabled: true,
-        ttl: 1800000 // 30 minutes
-      },
-      lcpConfig: {
-        selector: '.hero-image',
-        url: /hero\.(jpg|png)$/
-      },
-      preloadResources: [
-        { url: '/critical.css', as: 'style' }
-      ],
-      prefetchRoutes: ['/about', '/contact']
-    }
-  }
-};
-
-app.use(createExpressMiddleware(options));
-
-app.get('/', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>My App</title>
-        <link rel="stylesheet" href="/styles.css">
-      </head>
-      <body>
-        <img class="hero-image" src="/hero.jpg">
-        <script src="/app.js"></script>
-      </body>
-    </html>
-  `);
-});
-```
-
-### Next.js
-
-```typescript
-// middleware.ts
-import { createNextMiddleware } from 'auto-load-perf';
-
-export const middleware = createNextMiddleware({
-  preconnect: true,
-  prefetch: true,
-  preload: true,
-  priority: 'auto',
-  maxPreloads: 5,
-  cache: {
-    enabled: true,
-    maxSize: 100,
-    ttl: 3600000
-  },
+  
+  // Page optimizations
   pages: {
     '/': {
-      cache: {
-        enabled: true,
-        ttl: 1800000
-      },
       lcpConfig: {
         selector: '.hero-image',
-        url: /hero\.(jpg|png)$/
+        url: /hero\.(jpg|png)$/,
+        priority: 'high'
       }
     }
   }
-});
-
-export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)']
-};
+}));
 ```
 
-## Configuration Options
+## ⚙️ Configuration
 
 ### Global Options
 
@@ -137,31 +156,185 @@ export const config = {
 
 ### Page Configuration
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `lcpConfig` | object | `undefined` | LCP element configuration |
-| `preloadResources` | array | `[]` | Resources to preload |
-| `prefetchRoutes` | array | `[]` | Routes to prefetch |
-| `prefetchResources` | array | `[]` | Resources to prefetch |
-| `cache` | object | `undefined` | Page-specific cache configuration |
+| Option | Type | Description |
+|--------|------|-------------|
+| `lcpConfig` | object | LCP element configuration |
+| `preloadResources` | array | Resources to preload |
+| `prefetchRoutes` | array | Routes to prefetch |
+| `prefetchResources` | array | Resources to prefetch |
+| `cache` | object | Page-specific cache configuration |
+| `customTransform` | function | Custom DOM transformation function |
+| `fcpOptimizations` | object | FCP optimization configuration |
 
-## Performance Impact
+### LCP Configuration
 
-The middleware is designed to have minimal impact on your application's performance:
+| Option | Type | Description |
+|--------|------|-------------|
+| `selector` | string | CSS selector for the LCP element |
+| `url` | string \| RegExp | URL pattern to match |
+| `attributes` | object | Additional attributes to add |
+| `priority` | 'high' \| 'low' \| 'auto' | Resource priority |
+| `loading` | 'eager' \| 'lazy' | Loading strategy |
+| `fetchpriority` | 'high' \| 'low' \| 'auto' | Fetch priority |
 
-- **Zero Runtime Overhead**: Processing is done only once per unique HTML content
-- **Efficient Caching**: SHA-256 hashing ensures fast cache lookups
-- **Memory Efficient**: Configurable cache size limits memory usage
-- **TTL Support**: Automatic cache invalidation prevents stale content
+### FCP Optimizations
 
-## Best Practices
+| Option | Type | Description |
+|--------|------|-------------|
+| `criticalStyles` | string[] | Critical CSS to inline |
 
-1. **Enable Caching**: Always enable caching in production for optimal performance
-2. **Configure TTL**: Set appropriate TTL values based on your content update frequency
-3. **Page-Specific Settings**: Use page-specific configurations for fine-grained control
-4. **Monitor Cache Size**: Adjust `maxSize` based on your application's needs
-5. **LCP Optimization**: Configure LCP elements for critical images
+## 🔧 How It Works
 
-## License
+### Resource Hints
 
-MIT
+The library intelligently manages resource hints to optimize loading:
+
+1. **Preconnect**: Establishes early connections to external domains
+   ```html
+   <link rel="preconnect" href="https://cdn.example.com" crossorigin>
+   ```
+
+2. **Preload**: Prioritizes critical resources
+   ```html
+   <link rel="preload" href="/critical.css" as="style">
+   <link rel="preload" href="/hero.jpg" as="image">
+   ```
+
+3. **Prefetch**: Prepares for future navigation
+   ```html
+   <link rel="prefetch" href="/about">
+   ```
+
+### Picture Element Optimization
+
+Automatically optimizes responsive images:
+
+```html
+<!-- Before -->
+<img src="hero.jpg" alt="Hero">
+
+<!-- After -->
+<picture data-auto-load-perf>
+  <source srcset="hero.webp" type="image/webp">
+  <source srcset="hero.jpg" type="image/jpeg">
+  <img src="hero.jpg" alt="Hero" loading="eager" fetchpriority="high">
+</picture>
+```
+
+### Stylesheet Optimization
+
+Optimizes stylesheet loading and execution:
+
+1. Moves stylesheets to end of `<head>`
+2. Adds preload hints for critical stylesheets
+3. Supports critical CSS inlining
+
+### Custom Transformations
+
+Extend functionality with custom DOM transformations:
+
+```typescript
+{
+  pages: {
+    '/': {
+      customTransform: ($) => {
+        // Optimize images
+        $('img').addClass('optimized-image');
+        
+        // Defer non-critical scripts
+        $('script:not([data-critical])').attr('defer', '');
+        
+        // Add loading attributes
+        $('img[data-lazy]').attr('loading', 'lazy');
+      }
+    }
+  }
+}
+```
+
+## 📚 Best Practices
+
+### LCP Optimization
+
+1. **Identify LCP Elements**
+   ```typescript
+   lcpConfig: {
+     selector: '.hero-image',
+     url: /hero\.(jpg|png)$/,
+     priority: 'high'
+   }
+   ```
+
+2. **Use Picture Elements**
+   ```html
+   <picture>
+     <source srcset="hero.webp" type="image/webp">
+     <source srcset="hero.jpg" type="image/jpeg">
+     <img src="hero.jpg" alt="Hero">
+   </picture>
+   ```
+
+### FCP Optimization
+
+1. **Provide Critical CSS**
+   ```typescript
+   fcpOptimizations: {
+     criticalStyles: [
+       '.hero { display: block; }',
+       '.hero-image { width: 100%; }'
+     ]
+   }
+   ```
+
+2. **Optimize Stylesheet Loading**
+   - Let the library handle stylesheet optimization
+   - Use preload hints for critical stylesheets
+
+### Resource Hints
+
+1. **Preconnect for External Domains**
+   ```typescript
+   preconnect: true
+   ```
+
+2. **Preload Critical Resources**
+   ```typescript
+   preloadResources: [
+     { url: '/critical.css', as: 'style' },
+     { url: '/hero.jpg', as: 'image' }
+   ]
+   ```
+
+3. **Prefetch for Navigation**
+   ```typescript
+   prefetchRoutes: ['/about', '/contact']
+   ```
+
+### Caching Strategy
+
+1. **Enable for Stable Pages**
+   ```typescript
+   cache: {
+     enabled: true,
+     ttl: 3600000 // 1 hour
+   }
+   ```
+
+2. **Disable for Dynamic Content**
+   ```typescript
+   pages: {
+     '/dynamic': {
+       cache: {
+         enabled: false
+       }
+     }
+   }
+   ```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+## 📄 License
+
+MIT © [Your Name]
