@@ -13,7 +13,15 @@ export function createExpressMiddleware(options: AutoLoadPerfOptions) {
       if (typeof body === 'string' && res.get('Content-Type')?.includes('text/html')) {
         const currentDomain = req.hostname;
         const path = req.path;
-        body = optimizer.optimize(body, path, currentDomain);
+        optimizer.optimize(body, path, currentDomain)
+          .then(optimizedBody => {
+            originalSend.call(this, optimizedBody);
+          })
+          .catch(error => {
+            console.error('Failed to optimize HTML:', error);
+            originalSend.call(this, body);
+          });
+        return this;
       }
       return originalSend.call(this, body);
     };
@@ -22,7 +30,15 @@ export function createExpressMiddleware(options: AutoLoadPerfOptions) {
       if (typeof chunk === 'string' && res.get('Content-Type')?.includes('text/html')) {
         const currentDomain = req.hostname;
         const path = req.path;
-        chunk = optimizer.optimize(chunk, path, currentDomain);
+        optimizer.optimize(chunk, path, currentDomain)
+          .then(optimizedChunk => {
+            originalEnd.call(this, optimizedChunk, encoding, cb);
+          })
+          .catch(error => {
+            console.error('Failed to optimize HTML:', error);
+            originalEnd.call(this, chunk, encoding, cb);
+          });
+        return this;
       }
       return originalEnd.call(this, chunk, encoding, cb);
     };

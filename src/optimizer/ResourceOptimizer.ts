@@ -2,6 +2,7 @@ import { AutoLoadPerfOptions, ResourceHint, PageConfig } from '../types';
 import { DEFAULT_OPTIONS } from '../constants';
 import { HTMLProcessor } from '../utils/htmlProcessor';
 import { Cache } from '../utils/cache';
+import { minify } from 'html-minifier-terser';
 
 export class ResourceOptimizer {
   private options: AutoLoadPerfOptions;
@@ -15,7 +16,39 @@ export class ResourceOptimizer {
     }
   }
 
+  private async minifyHtml(html: string): Promise<string> {
+    if (!this.options.minify?.enabled) {
+      return html;
+    }
+
+    const defaultOptions = {
+      collapseWhitespace: true,
+      removeComments: true,
+      removeRedundantAttributes: true,
+      removeScriptTypeAttributes: true,
+      removeStyleLinkTypeAttributes: true,
+      minifyCSS: true,
+      minifyJS: true,
+      minifyURLs: true,
+      processScripts: ['application/ld+json']
+    };
+
+    const minifyOptions = {
+      ...defaultOptions,
+      ...this.options.minify.options
+    };
+
+    try {
+      return await minify(html, minifyOptions);
+    } catch (error) {
+      console.warn('Failed to minify HTML:', error);
+      return html;
+    }
+  }
+
   private findMatchingPageConfig(url: string): PageConfig | undefined {
+    if (!this.options.pages) return undefined;
+    
     for (const [pattern, config] of Object.entries(this.options.pages)) {
       if (pattern.startsWith('/')) {
         if (url.endsWith(pattern)) {
@@ -112,7 +145,7 @@ export class ResourceOptimizer {
     return hints;
   }
 
-  public optimize(html: string, path: string, currentDomain: string): string {
+  public async optimize(html: string, path: string, currentDomain: string): Promise<string> {
     const pageConfig = this.findMatchingPageConfig(path);
     const processor = new HTMLProcessor(html, currentDomain, pageConfig);
     
@@ -129,7 +162,12 @@ export class ResourceOptimizer {
     const hints = this.generateResourceHints(html, path, currentDomain);
     
     // Inject resource hints into HTML
-    const optimizedHtml = processor.injectResourceHints(hints);
+    let optimizedHtml = processor.injectResourceHints(hints);
+
+    // Apply minification if enabled
+    if (this.options.minify?.enabled) {
+      optimizedHtml = await this.minifyHtml(optimizedHtml);
+    }
 
     // Cache the result if enabled
     if (this.cache && pageConfig?.cache?.enabled && this.options.cache?.enabled) {

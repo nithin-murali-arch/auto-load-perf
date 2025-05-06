@@ -33,13 +33,27 @@ export interface PageConfig {
 }
 
 export interface AutoLoadPerfOptions {
-  preconnect: boolean;
-  prefetch: boolean;
-  preload: boolean;
-  priority: 'auto' | 'high' | 'low';
-  maxPreloads: number;
-  pages: Record<string, PageConfig>;
+  preconnect?: boolean;
+  prefetch?: boolean;
+  preload?: boolean;
+  priority?: 'auto' | 'high' | 'low';
+  maxPreloads?: number;
   cache?: CacheOptions;
+  pages?: Record<string, PageConfig>;
+  minify?: {
+    enabled: boolean;
+    options?: {
+      collapseWhitespace?: boolean;
+      removeComments?: boolean;
+      removeRedundantAttributes?: boolean;
+      removeScriptTypeAttributes?: boolean;
+      removeStyleLinkTypeAttributes?: boolean;
+      minifyCSS?: boolean;
+      minifyJS?: boolean;
+      minifyURLs?: boolean;
+      processScripts?: string[];
+    };
+  };
 }
 
 export interface ResourceHint {
