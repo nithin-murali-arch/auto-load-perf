@@ -1,10 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response as ExpressResponse, NextFunction } from 'express';
 import * as cheerio from 'cheerio';
-
-// Next.js types are optional and will be available if next is installed
-declare module 'next/server' {
-  export class NextResponse extends Response {}
-}
 
 export interface LCPConfig {
   url: string | RegExp;
@@ -62,7 +57,7 @@ export interface PerformanceMetrics {
   optimizedResources: number;
 }
 
-export type ExpressMiddleware = (req: Request, res: Response, next: NextFunction) => void;
+export type ExpressMiddleware = (req: Request, res: ExpressResponse, next: NextFunction) => void;
 
 export interface ResourceAnalyzer {
   analyze(html: string): {
