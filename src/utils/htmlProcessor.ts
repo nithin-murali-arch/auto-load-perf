@@ -194,24 +194,6 @@ export class HTMLProcessor {
       styleElement.text(criticalStyles.join('\n'));
       head.prepend(styleElement);
     }
-
-    // Move stylesheets to end of head
-    this.$('link[rel="stylesheet"]').each((_, el) => {
-      const $el = this.$(el);
-      const href = $el.attr('href');
-      
-      if (href && href.startsWith('/')) {
-        // Create preload link
-        const preloadLink = this.$('<link>');
-        preloadLink.attr('rel', 'preload');
-        preloadLink.attr('as', 'style');
-        preloadLink.attr('href', href);
-        head.prepend(preloadLink);
-
-        // Move stylesheet to end of head
-        head.append($el);
-      }
-    });
   }
 
   private applyCustomTransform() {
@@ -231,7 +213,15 @@ export class HTMLProcessor {
     const preloadHints = hints.filter(hint => hint.type === 'preload');
     const prefetchHints = hints.filter(hint => hint.type === 'prefetch');
 
-    // Add preconnect hints at the start of head
+    // Store stylesheets separately
+    const stylesheets = this.$('link[rel="stylesheet"]').clone();
+    this.$('link[rel="stylesheet"]').remove();
+    
+    // Store all other existing content
+    const existingContent = head.html() || '';
+    head.empty();
+
+    // Add preconnect hints at the very start of head
     preconnectHints.forEach(hint => {
       const attrs: Record<string, string> = {
         rel: hint.type,
@@ -239,12 +229,12 @@ export class HTMLProcessor {
       };
       if (hint.crossorigin) attrs.crossorigin = '';
 
-      head.prepend(`<link ${Object.entries(attrs)
+      head.append(`<link ${Object.entries(attrs)
         .map(([key, value]) => `${key}="${value}"`)
         .join(' ')}>`);
     });
 
-    // Add preload hints at the end of head
+    // Add preload hints right after preconnect hints
     preloadHints.forEach(hint => {
       const attrs: Record<string, string> = {
         rel: hint.type,
@@ -258,7 +248,10 @@ export class HTMLProcessor {
         .join(' ')}>`);
     });
 
-    // Add prefetch hints after preload hints
+    // Re-insert all existing content
+    head.append(existingContent);
+
+    // Add prefetch hints after existing content
     prefetchHints.forEach(hint => {
       const attrs: Record<string, string> = {
         rel: hint.type,
@@ -269,6 +262,22 @@ export class HTMLProcessor {
       head.append(`<link ${Object.entries(attrs)
         .map(([key, value]) => `${key}="${value}"`)
         .join(' ')}>`);
+    });
+
+    // Re-insert stylesheets at the very end
+    stylesheets.each((_index: number, el: Element) => {
+      const $el = this.$(el);
+      const href = $el.attr('href');
+      
+      if (href && href.startsWith('/')) {
+        // Create preload link
+        const preloadLink = this.$('<link>');
+        preloadLink.attr('rel', 'preload');
+        preloadLink.attr('as', 'style');
+        preloadLink.attr('href', href);
+        head.prepend(preloadLink);
+      }
+      head.append($el);
     });
 
     // Handle picture elements
