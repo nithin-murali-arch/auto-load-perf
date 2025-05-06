@@ -291,4 +291,49 @@ export class HTMLProcessor {
 
     return this.$.html();
   }
+
+  public getExistingResourceHints(): {
+    preconnectedDomains: Set<string>;
+    preloadedUrls: Set<string>;
+    prefetchedUrls: Set<string>;
+  } {
+    const preconnectedDomains = new Set<string>();
+    const preloadedUrls = new Set<string>();
+    const prefetchedUrls = new Set<string>();
+
+    // Check for existing preconnect hints
+    this.$('link[rel="preconnect"]').each((_, el) => {
+      const href = this.$(el).attr('href');
+      if (href) {
+        try {
+          const url = new URL(href);
+          preconnectedDomains.add(url.hostname);
+        } catch (e) {
+          // Invalid URL, skip
+        }
+      }
+    });
+
+    // Check for existing preload hints
+    this.$('link[rel="preload"]').each((_, el) => {
+      const href = this.$(el).attr('href');
+      if (href) {
+        preloadedUrls.add(href);
+      }
+    });
+
+    // Check for existing prefetch hints
+    this.$('link[rel="prefetch"]').each((_, el) => {
+      const href = this.$(el).attr('href');
+      if (href) {
+        prefetchedUrls.add(href);
+      }
+    });
+
+    return {
+      preconnectedDomains,
+      preloadedUrls,
+      prefetchedUrls
+    };
+  }
 } 

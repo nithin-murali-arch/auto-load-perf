@@ -23,14 +23,14 @@ export class ResourceOptimizer {
 
     const defaultOptions = {
       collapseWhitespace: true,
-      removeComments: true,
-      removeRedundantAttributes: true,
-      removeScriptTypeAttributes: true,
-      removeStyleLinkTypeAttributes: true,
+      removeComments: false,
+      removeRedundantAttributes: false,
+      removeScriptTypeAttributes: false,
+      removeStyleLinkTypeAttributes: false,
       minifyCSS: true,
-      minifyJS: true,
-      minifyURLs: true,
-      processScripts: ['application/ld+json']
+      minifyJS: false,
+      minifyURLs: false,
+      // processScripts: ['application/ld+json']
     };
 
     const minifyOptions = {
@@ -76,18 +76,30 @@ export class ResourceOptimizer {
     const processor = new HTMLProcessor(html, currentDomain);
     const hints: ResourceHint[] = [];
     const preloadedUrls = new Set<string>();
+    const preconnectedDomains = new Set<string>();
+    const prefetchedUrls = new Set<string>();
     const pageConfig = this.findMatchingPageConfig(currentUrl);
+
+    // Get existing resource hints from HTML
+    const existingHints = processor.getExistingResourceHints();
+    existingHints.preconnectedDomains.forEach(domain => preconnectedDomains.add(domain));
+    existingHints.preloadedUrls.forEach(url => preloadedUrls.add(url));
+    existingHints.prefetchedUrls.forEach(url => prefetchedUrls.add(url));
 
     // Extract domains first
     this.topDomains = processor.extractDomains();
 
     if (this.options.preconnect) {
       this.topDomains.forEach(({ domain }) => {
+        // Skip if domain is already preconnected in HTML
+        if (preconnectedDomains.has(domain)) return;
+        
         hints.push({
           url: `https://${domain}`,
           type: 'preconnect',
           crossorigin: true,
         });
+        preconnectedDomains.add(domain);
       });
     }
 
@@ -99,15 +111,19 @@ export class ResourceOptimizer {
       const scripts = processor.getScriptUrls();
       const customPreloads = pageConfig?.preloadResources || [];
 
-      // Preload all stylesheets by default
-      stylesheets.forEach(resource => {
+      // Preload stylesheets up to maxPreloads limit
+      for (let i = 0; i < Math.min(stylesheets.length, maxPreloads); i++) {
+        const resource = stylesheets[i];
+        // Skip if already preloaded in HTML
+        if (preloadedUrls.has(resource.url)) continue;
+        
         hints.push({
           url: resource.url,
           type: 'preload',
           as: resource.as,
         });
         preloadedUrls.add(resource.url);
-      });
+      }
 
       // Apply maxPreloads limit to custom preloads and scripts
       const remainingResources = [
@@ -117,6 +133,9 @@ export class ResourceOptimizer {
 
       for (let i = 0; i < Math.min(remainingResources.length, maxPreloads); i++) {
         const resource = remainingResources[i];
+        // Skip if already preloaded in HTML
+        if (preloadedUrls.has(resource.url)) continue;
+        
         hints.push({
           url: resource.url,
           type: 'preload',
@@ -135,10 +154,15 @@ export class ResourceOptimizer {
       ];
 
       for (let i = 0; i < Math.min(prefetchUrls.length, maxPreloads); i++) {
+        const url = prefetchUrls[i];
+        // Skip if already prefetched or preloaded in HTML
+        if (prefetchedUrls.has(url) || preloadedUrls.has(url)) continue;
+        
         hints.push({
-          url: prefetchUrls[i],
+          url,
           type: 'prefetch',
         });
+        prefetchedUrls.add(url);
       }
     }
 
