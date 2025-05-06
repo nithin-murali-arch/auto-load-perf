@@ -66,15 +66,24 @@ export class ResourceOptimizer {
       const scripts = processor.getScriptUrls();
       const customPreloads = pageConfig?.preloadResources || [];
 
-      // Prioritize stylesheets first, then scripts, then custom preloads
-      const criticalResources = [
-        ...stylesheets,
+      // Preload all stylesheets by default
+      stylesheets.forEach(resource => {
+        hints.push({
+          url: resource.url,
+          type: 'preload',
+          as: resource.as,
+        });
+        preloadedUrls.add(resource.url);
+      });
+
+      // Apply maxPreloads limit to custom preloads and scripts
+      const remainingResources = [
         ...customPreloads,
         ...scripts,
       ];
 
-      for (let i = 0; i < Math.min(criticalResources.length, maxPreloads); i++) {
-        const resource = criticalResources[i];
+      for (let i = 0; i < Math.min(remainingResources.length, maxPreloads); i++) {
+        const resource = remainingResources[i];
         hints.push({
           url: resource.url,
           type: 'preload',
