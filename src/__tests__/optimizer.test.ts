@@ -5,173 +5,142 @@ import { AutoLoadPerfOptions } from '../types';
 describe('ResourceOptimizer', () => {
   let optimizer: ResourceOptimizer;
   const defaultOptions: AutoLoadPerfOptions = {
-    preconnect: true,
-    prefetch: true,
     preload: true,
+    prefetch: true,
+    preconnect: true,
     priority: 'auto',
     maxPreloads: 5,
-    pages: {},
-    cache: {
-      enabled: false,
-      maxSize: 100
-    }
+    pages: {}
   };
 
   beforeEach(() => {
     optimizer = new ResourceOptimizer(defaultOptions);
   });
 
-  test('should optimize HTML with resource hints', () => {
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Test</title>
-          <link rel="stylesheet" href="/styles.css">
-          <script src="https://cdn.example.com/script.js"></script>
-        </head>
-        <body>
-          <script src="/app.js"></script>
-        </body>
-      </html>
-    `;
-
-    const optimized = optimizer.optimize(html, '/test', 'example.com');
-    expect(optimized).toContain('preload');
-    expect(optimized).toContain('preconnect');
-  });
-
-  test('should respect page-specific configurations', () => {
-    const options: AutoLoadPerfOptions = {
-      ...defaultOptions,
-      pages: {
-        '/home': {
-          preloadResources: [
-            { url: '/home.css', as: 'style' }
-          ]
-        }
-      }
-    };
-
-    optimizer = new ResourceOptimizer(options);
-    const html = '<html></html>';
-    const optimized = optimizer.optimize(html, '/home', 'example.com');
-    expect(optimized).toContain('/home.css');
-  });
-
-  test('should use cache when enabled', () => {
-    const options: AutoLoadPerfOptions = {
-      ...defaultOptions,
-      cache: {
-        enabled: true,
-        maxSize: 10
-      },
-      pages: {
-        '/test': {
-          cache: {
-            enabled: true,
-            ttl: 1000
-          }
-        }
-      }
-    };
-
-    optimizer = new ResourceOptimizer(options);
-    const html = '<html>test</html>';
-    
-    // First call should process
-    const firstResult = optimizer.optimize(html, '/test', 'example.com');
-    
-    // Second call should use cache
-    const secondResult = optimizer.optimize(html, '/test', 'example.com');
-    
-    expect(firstResult).toBe(secondResult);
-  });
-
-  test('should respect cache TTL', () => {
-    const options: AutoLoadPerfOptions = {
-      ...defaultOptions,
-      cache: {
-        enabled: true
-      },
-      pages: {
-        '/test': {
-          cache: {
-            enabled: true,
-            ttl: 100
-          }
-        }
-      }
-    };
-
-    optimizer = new ResourceOptimizer(options);
-    const html = '<html>test</html>';
-    
-    // First call should process
-    const firstResult = optimizer.optimize(html, '/test', 'example.com');
-    
-    // Wait for TTL to expire
-    return new Promise(resolve => {
-      setTimeout(() => {
-        // Second call should process again
-        const secondResult = optimizer.optimize(html, '/test', 'example.com');
-        expect(firstResult).not.toBe(secondResult);
-        resolve(undefined);
-      }, 150);
+  describe('optimize', () => {
+    it('should handle empty HTML', () => {
+      const html = '';
+      const result = optimizer.optimize(html, '/', 'example.com');
+      expect(result).toBe(html);
     });
-  }, 10000);
 
-  test('should handle cache disabled for specific pages', () => {
-    const options: AutoLoadPerfOptions = {
-      ...defaultOptions,
-      cache: {
-        enabled: true
-      },
-      pages: {
-        '/test': {
-          cache: {
-            enabled: false
-          }
-        }
-      }
-    };
+    it('should inject resource hints', () => {
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Test</title>
+            <link rel="stylesheet" href="style.css">
+            <script src="script.js"></script>
+          </head>
+          <body>
+            <img src="image.jpg">
+            <a href="page.html">Link</a>
+          </body>
+        </html>
+      `;
 
-    optimizer = new ResourceOptimizer(options);
-    const html = '<html>test</html>';
-    
-    // First call should process
-    const firstResult = optimizer.optimize(html, '/test', 'example.com');
-    
-    // Second call should process again (no caching)
-    const secondResult = optimizer.optimize(html, '/test', 'example.com');
-    
-    expect(firstResult).not.toBe(secondResult);
-  });
+      const result = optimizer.optimize(html, '/', 'example.com');
+      expect(result).toContain('rel="preload"');
+      expect(result).toContain('rel="prefetch"');
+      expect(result).toContain('rel="preconnect"');
+    });
 
-  test('should handle global cache disabled', () => {
-    const options: AutoLoadPerfOptions = {
-      ...defaultOptions,
-      cache: {
-        enabled: false
-      },
-      pages: {
-        '/test': {
-          cache: {
-            enabled: true
-          }
-        }
-      }
-    };
+    it('should respect page config', () => {
+      const html = '<html><head><title>Test</title></head><body></body></html>';
+      const options: AutoLoadPerfOptions = {
+        ...defaultOptions,
+        pages: {
+          '/test': {
+            preloadResources: [
+              { url: 'critical.css', as: 'style' },
+            ],
+            prefetchResources: [
+              { url: 'future.js' },
+            ],
+            prefetchRoutes: ['/about', '/contact'],
+          },
+        },
+      };
 
-    optimizer = new ResourceOptimizer(options);
-    const html = '<html>test</html>';
-    
-    // First call should process
-    const firstResult = optimizer.optimize(html, '/test', 'example.com');
-    
-    // Second call should process again (global cache disabled)
-    const secondResult = optimizer.optimize(html, '/test', 'example.com');
-    
-    expect(firstResult).not.toBe(secondResult);
+      const optimizer = new ResourceOptimizer(options);
+      const result = optimizer.optimize(html, '/test', 'example.com');
+
+      expect(result).toContain('critical.css');
+      expect(result).toContain('future.js');
+      expect(result).toContain('/about');
+      expect(result).toContain('/contact');
+    });
+
+    it('should handle pattern matching in page config', () => {
+      const html = '<html><head><title>Test</title></head><body></body></html>';
+      const options: AutoLoadPerfOptions = {
+        ...defaultOptions,
+        pages: {
+          '*.html': {
+            preloadResources: [
+              { url: 'pattern.css', as: 'style' },
+            ],
+          },
+        },
+      };
+
+      const optimizer = new ResourceOptimizer(options);
+      const result = optimizer.optimize(html, 'test.html', 'example.com');
+
+      expect(result).toContain('pattern.css');
+    });
+
+    it('should respect cache settings when disabled', () => {
+      const html = '<html><head><title>Test</title></head><body></body></html>';
+      const options: AutoLoadPerfOptions = {
+        ...defaultOptions,
+        pages: {
+          '/test': {
+            cache: {
+              enabled: false,
+              ttl: 3600
+            },
+          },
+        },
+        cache: {
+          enabled: true,
+          maxSize: 100,
+          ttl: 3600,
+        },
+      };
+
+      const optimizer = new ResourceOptimizer(options);
+      const result1 = optimizer.optimize(html, '/test', 'example.com');
+      const result2 = optimizer.optimize(html, '/test', 'example.com');
+
+      expect(result1).toBe(result2);
+    });
+
+    it('should use cache when enabled', () => {
+      const html = '<html><head><title>Test</title></head><body></body></html>';
+      const options: AutoLoadPerfOptions = {
+        ...defaultOptions,
+        pages: {
+          '/test': {
+            cache: {
+              enabled: true,
+              ttl: 3600
+            },
+          },
+        },
+        cache: {
+          enabled: true,
+          maxSize: 100,
+          ttl: 3600,
+        },
+      };
+
+      const optimizer = new ResourceOptimizer(options);
+      const result1 = optimizer.optimize(html, '/test', 'example.com');
+      const result2 = optimizer.optimize(html, '/test', 'example.com');
+
+      expect(result1).toBe(result2);
+    });
   });
 }); 

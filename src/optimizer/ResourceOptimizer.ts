@@ -39,10 +39,6 @@ export class ResourceOptimizer {
     return undefined;
   }
 
-  private getPageConfig(path: string): PageConfig | undefined {
-    return this.options.pages[path];
-  }
-
   private generateResourceHints(html: string, currentUrl: string, currentDomain: string): ResourceHint[] {
     const processor = new HTMLProcessor(html, currentDomain);
     const hints: ResourceHint[] = [];
@@ -84,9 +80,9 @@ export class ResourceOptimizer {
     if (this.options.prefetch) {
       const maxPreloads = this.options.maxPreloads || 5;
       const prefetchUrls = [
-        ...processor.getLinkUrls().filter(href => !preloadedUrls.has(href)),
+        ...processor.getLinkUrls().filter((href: string) => !preloadedUrls.has(href)),
         ...(pageConfig?.prefetchRoutes || []),
-        ...(pageConfig?.prefetchResources?.map(r => r.url) || [])
+        ...(pageConfig?.prefetchResources?.map((r: { url: string }) => r.url) || [])
       ];
 
       for (let i = 0; i < Math.min(prefetchUrls.length, maxPreloads); i++) {
